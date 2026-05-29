@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>読書メモ — YOMI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=DM+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;700&display=swap');
+  :root {
+    --ink: #1a1410; --paper: #f5f0e8; --paper2: #ede8dc;
+    --accent: #c84b2f; --accent2: #e8a030; --muted: #8a7d6b;
+    --border: #d4c9b4; --green: #2d6a4f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Zen Kaku Gothic New', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; max-width: 480px; margin: 0 auto; }
+
+  .header { background: var(--ink); color: var(--paper); padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .app-title { font-family: 'Noto Serif JP', serif; font-size: 22px; font-weight: 700; letter-spacing: 0.05em; }
+  .app-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.15em; margin-top: 2px; }
+  .header-right { text-align: right; }
+  .book-count { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--accent2); line-height: 1; }
+  .book-count-label { font-size: 9px; color: var(--muted); letter-spacing: 0.1em; }
+  .sync-status { font-family: 'DM Mono', monospace; font-size: 9px; margin-top: 4px; letter-spacing: 0.05em; }
+  .sync-ok { color: #6dbf8a; }
+  .sync-err { color: #e87070; }
+  .sync-ing { color: var(--accent2); }
+
+  /* Setup banner */
+  .setup-banner { background: #fff8f0; border: 1.5px dashed var(--accent2); border-radius: 10px; margin: 12px 16px; padding: 14px; }
+  .setup-title { font-weight: 700; font-size: 13px; color: var(--accent); margin-bottom: 6px; }
+  .setup-desc { font-size: 12px; color: #5a4f3e; line-height: 1.6; margin-bottom: 10px; }
+  .url-input { width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: 'DM Mono', monospace; color: var(--ink); outline: none; background: white; }
+  .url-input:focus { border-color: var(--accent); }
+  .setup-btn { margin-top: 8px; width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Zen Kaku Gothic New', sans-serif; }
+
+  .tabs { display: flex; background: var(--paper2); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tab { flex: 1; min-width: 70px; padding: 10px 6px; font-size: 11px; font-weight: 700; border: none; background: none; color: var(--muted); cursor: pointer; text-align: center; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--paper); }
+  .tab-count { display: inline-block; width: 16px; height: 16px; border-radius: 50%; font-size: 9px; line-height: 16px; text-align: center; margin-left: 3px; font-weight: 700; }
+
+  .input-section { padding: 16px; background: var(--paper); border-bottom: 1px solid var(--border); }
+  .input-label { font-size: 10px; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 8px; font-family: 'DM Mono', monospace; }
+  .input-box { width: 100%; background: white; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 15px; color: var(--ink); resize: none; min-height: 80px; outline: none; transition: border-color 0.2s; line-height: 1.6; }
+  .input-box:focus { border-color: var(--accent); }
+  .input-box::placeholder { color: var(--muted); font-size: 13px; }
+  .input-hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .send-btn { width: 100%; margin-top: 10px; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 13px; font-family: 'Zen Kaku Gothic New', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+  .send-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+  .processing { display: none; padding: 12px 16px; background: #fff8f0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--accent2); font-family: 'DM Mono', monospace; align-items: center; gap: 8px; }
+  .processing.show { display: flex; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--accent2); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .ai-banner { margin: 12px 16px; padding: 12px 14px; background: var(--ink); border-radius: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .ai-banner-label { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--accent2); letter-spacing: 0.1em; margin-bottom: 2px; }
+  .ai-banner-text { font-size: 12px; color: var(--paper); line-height: 1.4; }
+
+  .list-section { padding: 12px 16px; }
+  .section-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; color: var(--muted); margin-bottom: 12px; }
+
+  .book-card { background: white; border-radius: 10px; margin-bottom: 10px; border: 1px solid var(--border); overflow: hidden; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .card-priority-bar { height: 3px; }
+  .priority-now { background: var(--accent); }
+  .priority-next { background: var(--accent2); }
+  .priority-someday { background: var(--muted); }
+  .card-body { padding: 12px 14px; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .book-title { font-family: 'Noto Serif JP', serif; font-size: 15px; font-weight: 700; line-height: 1.4; flex: 1; }
+  .priority-badge { font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 7px; border-radius: 20px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+  .badge-now { background: #fce8e4; color: var(--accent); }
+  .badge-next { background: #fdf3e0; color: #b07a10; }
+  .badge-someday { background: #f0ede8; color: var(--muted); }
+  .badge-read { background: #e8f4ee; color: var(--green); }
+  .book-author { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .card-meta { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .meta-item { font-size: 11px; color: var(--muted); }
+  .card-context { margin-top: 8px; padding: 8px 10px; background: var(--paper); border-radius: 6px; font-size: 12px; color: #5a4f3e; line-height: 1.5; border-left: 2px solid var(--border); }
+  .card-actions { display: flex; border-top: 1px solid var(--paper2); margin-top: 10px; }
+  .card-action-btn { flex: 1; padding: 8px; font-size: 11px; font-family: 'Zen Kaku Gothic New', sans-serif; border: none; background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .card-action-btn + .card-action-btn { border-left: 1px solid var(--paper2); }
+  .read-card { opacity: 0.65; }
+  .read-card .book-title { text-decoration: line-through; color: var(--muted); }
+
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-text { font-size: 14px; line-height: 1.8; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,20,16,0.7); z-index: 200; align-items: flex-end; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--paper); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-height: 75vh; overflow-y: auto; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-family: 'Noto Serif JP', serif; font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  .modal-content { font-size: 14px; line-height: 1.8; color: #3a2f20; white-space: pre-wrap; }
+  .modal-close { width: 100%; margin-top: 16px; padding: 12px; background: var(--ink); color: var(--paper); border: none; border-radius: 8px; font-size: 14px; font-family: 'Zen Kaku Gothic New', sans-serif; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="app-title">読書メモ</div>
+      <div class="app-sub">YOMI — BOOK TRACKER</div>
+    </div>
+    <div class="header-right">
+      <div class="book-count" id="totalCount">0</div>
+      <div class="book-count-label">冊登録中</div>
+      <div class="sync-status" id="syncStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Setup Banner (shown when no URL configured) -->
+<div class="setup-banner" id="setupBanner" style="display:none">
+  <div class="setup-title">☁️ クラウド同期を設定する</div>
+  <div class="setup-desc">Google Apps ScriptのURLを貼り付けると、スマホとPCで自動同期されます。</div>
+  <input class="url-input" id="gasUrlInput" type="url" placeholder="https://script.google.com/macros/s/...">
+  <button class="setup-btn" onclick="saveGasUrl()">この端末に設定して同期開始</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('all')" id="tab-all">すべて</button>
+  <button class="tab" onclick="switchTab('now')" id="tab-now">今すぐ <span class="tab-count" id="dot-now" style="background:#fce8e4;color:var(--accent)">0</span></button>
+  <button class="tab" onclick="switchTab('next')" id="tab-next">次の季節 <span class="tab-count" id="dot-next" style="background:#fdf3e0;color:#b07a10">0</span></button>
+  <button class="tab" onclick="switchTab('someday')" id="tab-someday">いつか <span class="tab-count" id="dot-someday" style="background:#f0ede8;color:var(--muted)">0</span></button>
+  <button class="tab" onclick="switchTab('read')" id="tab-read">読了 <span class="tab-count" id="dot-read" style="background:#e8f4ee;color:var(--green)">0</span></button>
+</div>
+
+<div class="input-section">
+  <div class="input-label">📨 雑にメモする</div>
+  <textarea class="input-box" id="memoInput" placeholder="村上さんに薦められた 限界費用ゼロ社会&#10;&#10;さっき飲み会で 脱炭素の本&#10;&#10;ボノボの本 読みたい"></textarea>
+  <div class="input-hint">誰に・どんな文脈で薦められたか、雑に書けばOK。AIが整理します。</div>
+  <button class="send-btn" onclick="processInput()" id="sendBtn">✨ AIに整理してもらう</button>
+</div>
+
+<div class="processing" id="processing">
+  <div class="spin"></div>
+  <span id="processingMsg">AIが整理しています...</span>
+</div>
+
+<div id="ai-banner-area"></div>
+
+<div class="list-section">
+  <div class="section-title">BOOK LIST</div>
+  <div id="bookList"></div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">📚 AIからの提案</div>
+    <div class="modal-content" id="modalContent"></div>
+    <button class="modal-close" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────
+let books = JSON.parse(localStorage.getItem('yomi_books') || '[]');
+let currentTab = 'all';
+let GAS_URL = localStorage.getItem('yomi_gas_url') || '';
+
+// ─── Sync ────────────────────────────────────────────────
+function setSyncStatus(state, msg) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status sync-' + state;
+  el.textContent = msg;
+}
+
+async function syncFromCloud() {
+  if (!GAS_URL) return;
+  setSyncStatus('ing', '↻ 同期中...');
+  try {
+    const res = await fetch(GAS_URL + '?action=getAll');
+    const data = await res.json();
+    if (data.books && data.books.length > 0) {
+      books = data.books;
+      localStorage.setItem('yomi_books', JSON.stringify(books));
+    }
+    setSyncStatus('ok', '✓ 同期済み');
+    updateCounts(); renderBooks();
+  } catch (e) {
+    setSyncStatus('err', '✗ 同期失敗');
+  }
+}
+
+async function syncToCloud() {
+  if (!GAS_URL) return;
+  setSyncStatus('ing', '↑ 保存中...');
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'save', books })
+    });
+    setSyncStatus('ok', '✓ 保存済み');
+  } catch (e) {
+    setSyncStatus('err', '✗ 保存失敗');
+  }
+}
+
+function saveBooks() {
+  localStorage.setItem('yomi_books', JSON.stringify(books));
+  syncToCloud();
+}
+
+function saveGasUrl() {
+  const url = document.getElementById('gasUrlInput').value.trim();
+  if (!url.startsWith('https://script.google.com')) {
+    alert('Google Apps ScriptのURLを入力してください');
+    return;
+  }
+  GAS_URL = url;
+  localStorage.setItem('yomi_gas_url', url);
+  document.getElementById('setupBanner').style.display = 'none';
+  syncFromCloud();
+}
+
+// ─── UI ──────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function updateCounts() {
+  const c = { now: 0, next: 0, someday: 0, read: 0 };
+  books.forEach(b => { if (b.status==='read') c.read++; else c[b.priority] = (c[b.priority]||0)+1; });
+  ['now','next','someday','read'].forEach(k => document.getElementById('dot-'+k).textContent = c[k]);
+  document.getElementById('totalCount').textContent = books.filter(b=>b.status!=='read').length;
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  renderBooks();
+}
+
+function renderBooks() {
+  const list = document.getElementById('bookList');
+  const order = { now:0, next:1, someday:2 };
+  let filtered = currentTab === 'read'
+    ? books.filter(b => b.status==='read')
+    : currentTab === 'all'
+      ? books.filter(b => b.status!=='read').sort((a,b)=>(order[a.priority]||2)-(order[b.priority]||2))
+      : books.filter(b => b.status!=='read' && b.priority===currentTab);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">${currentTab==='read'?'🎉':'📖'}</div><div class="empty-text">${currentTab==='read'?'読了した本がここに入ります':'雑にメモして、AIに整理させましょう'}</div></div>`;
+  } else {
+    list.innerHTML = filtered.map(book => {
+      const isRead = book.status==='read';
+      const bl = isRead?'read': book.priority;
+      const blLabel = { now:'今すぐ', next:'次の季節', someday:'いつか', read:'読了' }[bl];
+      return `<div class="book-card ${isRead?'read-card':''}">
+        <div class="card-priority-bar priority-${isRead?'someday':book.priority}"></div>
+        <div class="card-body">
+          <div class="card-top">
+            <div class="book-title">${escHtml(book.title)}</div>
+            <span class="priority-badge badge-${bl}">${blLabel}</span>
+          </div>
+          ${book.author?`<div class="book-author">${escHtml(book.author)}</div>`:''}
+          <div class="card-meta">
+            ${book.recommender?`<div class="meta-item">👤 ${escHtml(book.recommender)}</div>`:''}
+            ${book.date?`<div class="meta-item">📅 ${escHtml(book.date)}</div>`:''}
+          </div>
+          ${book.context?`<div class="card-context">💬 ${escHtml(book.context)}</div>`:''}
+        </div>
+        <div class="card-actions">
+          ${!isRead?`<button class="card-action-btn" onclick="markRead('${book.id}')">✅ 読了</button>`:''}
+          <button class="card-action-btn" onclick="changePriority('${book.id}')">🔄 優先度</button>
+          <button class="card-action-btn" onclick="deleteBook('${book.id}')">🗑 削除</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const ba = document.getElementById('ai-banner-area');
+  ba.innerHTML = books.filter(b=>b.status!=='read').length >= 2
+    ? `<div class="ai-banner" onclick="askAI()"><div style="font-size:22px">🤖</div><div><div class="ai-banner-label">AI SUGGEST</div><div class="ai-banner-text">「今週何を読む？」AIに聞いてみる</div></div><div style="color:#8a7d6b;font-size:18px;margin-left:auto">›</div></div>`
+    : '';
+}
+
+// ─── AI Input Processing ──────────────────────────────────
+async function processInput() {
+  const input = document.getElementById('memoInput').value.trim();
+  if (!input) return;
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('processingMsg').textContent = 'AIが整理しています...';
+  document.getElementById('processing').classList.add('show');
+  const today = new Date().toLocaleDateString('ja-JP',{month:'long',day:'numeric'});
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-20250514", max_tokens:1000,
+        messages:[{role:"user",content:`あなたは読書リスト管理AIです。以下の雑なメモから本の情報を抽出・整理してください。
+
+メモ：
+${input}
+
+以下のJSON配列のみを返してください。余計なテキスト・Markdownは一切不要：
+[{"title":"本タイトル","author":"著者名またはnull","recommender":"推薦者またはnull","context":"文脈・理由","priority":"now/next/someday"}]
+
+優先度基準：強く薦められた→now、文脈明確→next、なんとなく→someday`}]
+      })
+    });
+    const data = await res.json();
+    const clean = data.content[0].text.replace(/\`\`\`json|\`\`\`/g,'').trim();
+    const parsed = JSON.parse(clean);
+    parsed.forEach(book => {
+      books.unshift({ id: Date.now()+Math.random(), title:book.title||'タイトル不明', author:book.author||'', recommender:book.recommender||'', context:book.context||'', priority:book.priority||'someday', date:today, status:'active' });
+    });
+    saveBooks();
+    document.getElementById('memoInput').value='';
+    updateCounts(); renderBooks();
+  } catch(err) {
+    books.unshift({ id:Date.now(), title:input.substring(0,50), author:'', recommender:'', context:input, priority:'someday', date:today, status:'active' });
+    saveBooks(); document.getElementById('memoInput').value=''; updateCounts(); renderBooks();
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('processing').classList.remove('show');
+}
+
+// ─── AI Suggest ───────────────────────────────────────────
+async function askAI() {
+  document.getElementById('modalTitle').textContent='🤖 分析中...';
+  document.getElementById('modalContent').textContent='';
+  document.getElementById('modalOverlay').classList.add('show');
+  const activeBooks = books.filter(b=>b.status!=='read');
+  const bookList = activeBooks.map(b=>`・${b.title}（${b.priority}）${b.recommender?` ← ${b.recommender}`:''}`).join('\n');
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000,
+        messages:[{role:"user",content:`読書コンシェルジュとして、このリストから今週読む本を1〜2冊提案してください。\n\nリスト：\n${bookList}\n\nユーザー：SX・循環ビジネスの専門家。著者・社外取締役・連載コラムニスト。インプットがアウトプットに直結。\n\n200字以内で端的に提案と理由を教えてください。`}]
+      })
+    });
+    const data = await res.json();
+    document.getElementById('modalTitle').textContent='📚 今週の読書提案';
+    document.getElementById('modalContent').textContent=data.content[0].text;
+  } catch(e) {
+    document.getElementById('modalContent').textContent='接続に失敗しました。';
+  }
+}
+
+// ─── Card Actions ─────────────────────────────────────────
+function markRead(id) { const b=books.find(b=>String(b.id)===String(id)); if(b){b.status='read';saveBooks();updateCounts();renderBooks();} }
+function deleteBook(id) { books=books.filter(b=>String(b.id)!==String(id));saveBooks();updateCounts();renderBooks(); }
+function changePriority(id) { const b=books.find(b=>String(b.id)===String(id)); if(b){const o=['now','next','someday'];b.priority=o[(o.indexOf(b.priority)+1)%3];saveBooks();updateCounts();renderBooks();} }
+function closeModal(e) { if(!e||e.target===document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('show'); }
+
+// ─── Init ─────────────────────────────────────────────────
+if (!GAS_URL) {
+  document.getElementById('setupBanner').style.display = 'block';
+} else {
+  syncFromCloud();
+}
+updateCounts();
+renderBooks();
+</script>
+</body>
+</html>
